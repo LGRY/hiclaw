@@ -54,6 +54,58 @@ To add a new MCP Server (e.g., GitLab, Jira):
 3. Authorize consumers: `PUT /v1/mcpServer/consumers`
 4. Create a skill for Workers that documents the available tools
 
+## Session Management
+
+### OpenClaw Session Retention
+
+Both the Manager and Worker OpenClaw instances are configured with a **7-day idle session retention** for the Matrix channel:
+
+```json
+"session": {
+  "resetByChannel": {
+    "matrix": { "mode": "idle", "idleMinutes": 10080 }
+  }
+}
+```
+
+This means a room's conversation context is preserved as long as a message is sent within any 7-day window. Without activity, the session resets and the next message starts a fresh context — losing continuity for long-running projects.
+
+### Automatic Expiry Monitoring
+
+The Manager performs a daily scan of all known Matrix rooms (Worker rooms and active project rooms) and checks how long each has been idle. Rooms that have been idle for **6 or more days** (1 day before the 7-day limit) are flagged as near-expiry.
+
+When near-expiry rooms are detected, the Manager notifies the human admin in DM:
+
+> The following Matrix rooms will lose their conversation history in ~1 day due to idle expiry. Reply with the rooms you want to keep alive and I'll send a keepalive message.
+
+### Sending Keepalive Messages
+
+When the human admin confirms which rooms to keep alive, the Manager runs:
+
+```bash
+bash /opt/hiclaw/scripts/session-keepalive.sh --action keepalive --room <room_id>
+```
+
+The script:
+1. Checks if any Worker containers in the room are stopped and wakes them up (`lifecycle-worker.sh --action start`)
+2. Waits 30 seconds for stopped Workers to reconnect to Matrix
+3. Sends a message mentioning all room members, resetting the idle timer for every participant
+
+This ensures all participants — including Workers — have their sessions refreshed together.
+
+### Manual Scan
+
+To trigger a scan immediately (bypassing the 23-hour guard):
+
+```bash
+# Delete the last-run timestamp to force a fresh scan
+rm ~/manager-workspace/.session-scan-last-run
+
+docker exec hiclaw-manager bash -c \
+  'MANAGER_MATRIX_TOKEN=$(jq -r .channels.matrix.accessToken ~/manager-workspace/openclaw.json) \
+   bash /opt/hiclaw/scripts/session-keepalive.sh --action scan'
+```
+
 ## Monitoring
 
 ### Logs

@@ -90,6 +90,8 @@ The Manager Agent coordinates the entire team:
 - Assigns and tracks tasks
 - Runs heartbeat checks every 15 minutes
 - Manages credentials and access control
+- Automatically stops idle Worker containers and restarts them on task assignment
+- Monitors Matrix room session expiry and sends keepalive messages on request
 
 ### Worker Agent (OpenClaw)
 
@@ -148,6 +150,8 @@ Mounted at `/root/manager-workspace` inside the container.
 ├── worker-skills/           # Worker skill definitions (pushed to workers via mc cp)
 ├── workers-registry.json    # Worker skill assignments and room IDs
 ├── state.json               # Active task state
+├── worker-lifecycle.json    # Worker container status and idle tracking
+├── .session-scan-last-run   # Timestamp of last Matrix session expiry scan
 └── memory/                  # Manager's memory files (MEMORY.md, YYYY-MM-DD.md)
 ```
 
