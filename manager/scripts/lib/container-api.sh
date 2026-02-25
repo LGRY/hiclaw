@@ -104,7 +104,7 @@ container_create_worker() {
     local extra_hosts=""
     local matrix_host="${HICLAW_MATRIX_DOMAIN%%:*}"
     local matrix_client_host="${HICLAW_MATRIX_CLIENT_DOMAIN:-matrix-client-local.hiclaw.io}"
-    local ai_gw_host="${HICLAW_AI_GATEWAY_DOMAIN:-llm-local.hiclaw.io}"
+    local ai_gw_host="${HICLAW_AI_GATEWAY_DOMAIN:-aigw-local.hiclaw.io}"
     local fs_host="${HICLAW_FS_DOMAIN:-fs-local.hiclaw.io}"
 
     for h in "${matrix_host}" "${matrix_client_host}" "${ai_gw_host}" "${fs_host}"; do

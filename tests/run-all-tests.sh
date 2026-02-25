@@ -20,8 +20,6 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SKIP_BUILD=false
 USE_EXISTING=false
 TEST_FILTER=""
-INCLUDE_PROJECT_TEST=false
-MANAGER_CONTAINER="hiclaw-manager-test"
 HICLAW_VERSION="${HICLAW_VERSION:-latest}"
 
 # Test environment variables
@@ -40,7 +38,6 @@ while [[ $# -gt 0 ]]; do
         --skip-build) SKIP_BUILD=true; shift ;;
         --use-existing) USE_EXISTING=true; SKIP_BUILD=true; shift ;;
         --test-filter) TEST_FILTER="$2"; shift 2 ;;
-        --include-project-test) INCLUDE_PROJECT_TEST=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -61,11 +58,13 @@ if [ "${USE_EXISTING}" = true ]; then
                 HICLAW_MATRIX_DOMAIN)    export TEST_MATRIX_DOMAIN="${value}" ;;
                 HICLAW_LLM_API_KEY)      [ -z "${HICLAW_LLM_API_KEY}" ] && export HICLAW_LLM_API_KEY="${value}" ;;
                 HICLAW_MANAGER_GATEWAY_KEY) export TEST_MANAGER_GATEWAY_KEY="${value}" ;;
+                HICLAW_PORT_GATEWAY)     export TEST_GATEWAY_PORT="${value}" ;;
+                HICLAW_PORT_CONSOLE)     export TEST_CONSOLE_PORT="${value}" ;;
             esac
         done < "${ENV_FILE}"
     fi
-    # When using an existing installation, the manager container is named hiclaw-manager
-    export TEST_MANAGER_CONTAINER="${TEST_MANAGER_CONTAINER:-hiclaw-manager}"
+    # Use the default container name
+    export TEST_MANAGER_CONTAINER="hiclaw-manager"
 fi
 
 # ============================================================
@@ -91,8 +90,8 @@ cleanup() {
     fi
 
     log "Cleaning up..."
-    docker stop "${MANAGER_CONTAINER}" 2>/dev/null || true
-    docker rm "${MANAGER_CONTAINER}" 2>/dev/null || true
+    docker stop hiclaw-manager 2>/dev/null || true
+    docker rm hiclaw-manager 2>/dev/null || true
 
     # Cleanup worker containers
     for c in $(docker ps -a --filter "name=hiclaw-test-worker-" --format '{{.Names}}' 2>/dev/null); do
@@ -139,9 +138,9 @@ if [ "${USE_EXISTING}" = true ]; then
 else
     log "Starting Manager container..."
 
-    # Clean up any existing test container
-    docker stop "${MANAGER_CONTAINER}" 2>/dev/null || true
-    docker rm "${MANAGER_CONTAINER}" 2>/dev/null || true
+    # Clean up any existing container
+    docker stop hiclaw-manager 2>/dev/null || true
+    docker rm hiclaw-manager 2>/dev/null || true
 
     MANAGER_GATEWAY_KEY="$(openssl rand -hex 32)"
 
@@ -161,9 +160,9 @@ else
         log "No container runtime socket found (Worker creation will output commands)"
     fi
 
-    export TEST_MANAGER_CONTAINER="${MANAGER_CONTAINER}"
+    export TEST_MANAGER_CONTAINER="hiclaw-manager"
     docker run -d \
-        --name "${MANAGER_CONTAINER}" \
+        --name hiclaw-manager \
         ${SOCKET_MOUNT_ARGS} \
         -e "HICLAW_YOLO=1" \
         -e "HICLAW_ADMIN_USER=${TEST_ADMIN_USER}" \
@@ -194,9 +193,9 @@ else
 
     while [ "${ELAPSED}" -lt "${TIMEOUT}" ]; do
         # Matrix and MinIO are not exposed to host; check via docker exec
-        MATRIX_OK=$(docker exec "${MANAGER_CONTAINER}" curl -s -o /dev/null -w '%{http_code}' \
+        MATRIX_OK=$(docker exec "${TEST_MANAGER_CONTAINER}" curl -s -o /dev/null -w '%{http_code}' \
             "http://127.0.0.1:6167/_matrix/client/versions" 2>/dev/null) || true
-        MINIO_OK=$(docker exec "${MANAGER_CONTAINER}" curl -s -o /dev/null -w '%{http_code}' \
+        MINIO_OK=$(docker exec "${TEST_MANAGER_CONTAINER}" curl -s -o /dev/null -w '%{http_code}' \
             "http://127.0.0.1:9000/minio/health/live" 2>/dev/null) || true
         CONSOLE_OK=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8001/" 2>/dev/null) || true
 
@@ -212,7 +211,7 @@ else
 
     if [ "${ELAPSED}" -ge "${TIMEOUT}" ]; then
         error "Manager did not become healthy within ${TIMEOUT}s"
-        docker logs "${MANAGER_CONTAINER}" --tail 100
+        docker logs "${TEST_MANAGER_CONTAINER}" --tail 100
         exit 1
     fi
 
@@ -260,24 +259,6 @@ for test_file in "${TESTS[@]}"; do
 
     echo ""
 done
-
-# Optionally run the project collaboration test (long-running, opt-in only)
-if [ "${INCLUDE_PROJECT_TEST}" = true ]; then
-    log "Running: project-collaboration (long-running, may take up to 1 hour)"
-    PROJECT_TEST="${SCRIPT_DIR}/project-collaboration/run-test.sh"
-    if [ -f "${PROJECT_TEST}" ]; then
-        if bash "${PROJECT_TEST}" \
-            --timeout "${PROJECT_TEST_TIMEOUT:-3600}"; then
-            RESULTS+=("PASS: project-collaboration")
-            TOTAL_PASS=$((TOTAL_PASS + 1))
-        else
-            RESULTS+=("FAIL: project-collaboration")
-            TOTAL_FAIL=$((TOTAL_FAIL + 1))
-        fi
-    else
-        log "WARNING: project-collaboration test not found at ${PROJECT_TEST}"
-    fi
-fi
 
 # ============================================================
 # Step 5: Report results

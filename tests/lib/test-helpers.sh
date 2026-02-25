@@ -159,6 +159,73 @@ wait_for_manager() {
         "curl -sf http://${TEST_MANAGER_HOST}:${TEST_GATEWAY_PORT}/ > /dev/null 2>&1"
 }
 
+# Wait for Manager Agent (OpenClaw) to be fully ready
+# Phase 1: OpenClaw gateway health check (inside container)
+# Phase 2: Manager has joined the specified DM room
+# Usage: wait_for_manager_agent_ready [timeout] [room_id] [access_token]
+wait_for_manager_agent_ready() {
+    local timeout="${1:-300}"
+    local room_id="${2:-}"
+    local access_token="${3:-}"
+    local manager_container="${TEST_MANAGER_CONTAINER:-hiclaw-manager-test}"
+    local manager_user="manager"
+    local matrix_domain="${TEST_MATRIX_DOMAIN:-matrix-local.hiclaw.io:${TEST_GATEWAY_PORT}}"
+
+    local elapsed=0
+
+    # Phase 1: Wait for OpenClaw gateway to be healthy
+    log_info "Waiting for Manager OpenClaw gateway to be healthy..."
+    local gateway_ready=false
+    while [ "${elapsed}" -lt "${timeout}" ]; do
+        if docker exec "${manager_container}" openclaw gateway health --json 2>/dev/null | grep -q '"ok"'; then
+            gateway_ready=true
+            log_info "OpenClaw gateway is healthy (took ${elapsed}s)"
+            break
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+        printf "\r\033[36m[TEST INFO]\033[0m Waiting for OpenClaw gateway... (%ds/%ds)" "${elapsed}" "${timeout}"
+    done
+
+    if [ "${gateway_ready}" != "true" ]; then
+        log_fail "OpenClaw gateway did not become healthy within ${timeout}s"
+        return 1
+    fi
+
+    # Phase 2: Wait for Manager to join the DM room (if room_id and token provided)
+    if [ -n "${room_id}" ] && [ -n "${access_token}" ]; then
+        log_info "Waiting for Manager to join DM room..."
+        local manager_full_id="@${manager_user}:${matrix_domain}"
+        local manager_joined=false
+
+        while [ "${elapsed}" -lt "${timeout}" ]; do
+            local members
+            members=$(curl -sf -X GET \
+                -H "Authorization: Bearer ${access_token}" \
+                -H "Host: ${matrix_domain}" \
+                "http://${TEST_MANAGER_HOST}:${TEST_GATEWAY_PORT}/_matrix/client/v3/rooms/${room_id}/members" 2>/dev/null | \
+                jq -r '.chunk[].state_key' 2>/dev/null) || true
+
+            if echo "${members}" | grep -q "${manager_full_id}"; then
+                manager_joined=true
+                log_info "Manager has joined the DM room"
+                break
+            fi
+            sleep 3
+            elapsed=$((elapsed + 3))
+            printf "\r\033[36m[TEST INFO]\033[0m Waiting for Manager to join room... (%ds/%ds)" "${elapsed}" "${timeout}"
+        done
+
+        if [ "${manager_joined}" != "true" ]; then
+            log_fail "Manager did not join the DM room within ${timeout}s"
+            return 1
+        fi
+    fi
+
+    log_info "Manager Agent is fully ready"
+    return 0
+}
+
 # ============================================================
 # Test Lifecycle
 # ============================================================
@@ -217,7 +284,7 @@ require_llm_key() {
 # Run a command inside the Manager container.
 # Used by matrix-client.sh and minio-client.sh to avoid exposing Matrix/MinIO ports to host.
 exec_in_manager() {
-    docker exec "${TEST_MANAGER_CONTAINER:-hiclaw-manager-test}" "$@"
+    docker exec "${TEST_MANAGER_CONTAINER:-hiclaw-manager}" "$@"
 }
 
 start_worker_container() {

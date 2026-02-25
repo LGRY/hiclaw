@@ -44,7 +44,7 @@ Both methods support environment variable overrides for all settings. See `insta
 Add the following to your `/etc/hosts` file:
 
 ```
-127.0.0.1 matrix-local.hiclaw.io matrix-client-local.hiclaw.io llm-local.hiclaw.io fs-local.hiclaw.io
+127.0.0.1 matrix-local.hiclaw.io matrix-client-local.hiclaw.io aigw-local.hiclaw.io fs-local.hiclaw.io
 ```
 
 ### 1.3 Login to Element Web

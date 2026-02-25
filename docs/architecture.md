@@ -64,8 +64,7 @@ Higress serves as the unified entry point for all external access:
 - `matrix-local.hiclaw.io` -> Tuwunel (port 6167) - Matrix Homeserver
 - `matrix-client-local.hiclaw.io` -> Element Web (port 8088) - IM web client
 - `fs-local.hiclaw.io` -> MinIO (port 9000) - HTTP file system (auth required)
-- `llm-local.hiclaw.io` -> AI Provider - LLM proxy (auth required)
-- MCP Server routes - Auto-generated for each MCP server
+- `aigw-local.hiclaw.io` -> AI Gateway - LLM proxy + MCP servers (auth required)
 
 ### Matrix Homeserver (Tuwunel)
 

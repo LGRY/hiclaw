@@ -25,6 +25,14 @@ log_section "Assign Task"
 DM_ROOM=$(matrix_find_dm_room "${ADMIN_TOKEN}" "${MANAGER_USER}" 2>/dev/null || true)
 assert_not_empty "${DM_ROOM}" "DM room with Manager found"
 
+# Wait for Manager Agent to be fully ready (OpenClaw gateway + joined DM room)
+wait_for_manager_agent_ready 300 "${DM_ROOM}" "${ADMIN_TOKEN}" || {
+    log_fail "Manager Agent not ready in time"
+    test_teardown "04-human-intervene"
+    test_summary
+    exit 1
+}
+
 # Send initial task
 matrix_send_message "${ADMIN_TOKEN}" "${DM_ROOM}" \
     "Ask Alice to write a Python script that prints 'Hello, World!' and saves it as hello.py."

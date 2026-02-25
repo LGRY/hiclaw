@@ -209,7 +209,7 @@ install_manager() {
     log "--- Domain Configuration (press Enter for defaults) ---"
     prompt HICLAW_MATRIX_DOMAIN "Matrix Domain" "matrix-local.hiclaw.io:${HICLAW_PORT_GATEWAY}"
     prompt HICLAW_MATRIX_CLIENT_DOMAIN "Element Web Domain" "matrix-client-local.hiclaw.io"
-    prompt HICLAW_AI_GATEWAY_DOMAIN "AI Gateway Domain" "llm-local.hiclaw.io"
+    prompt HICLAW_AI_GATEWAY_DOMAIN "AI Gateway Domain" "aigw-local.hiclaw.io"
     prompt HICLAW_FS_DOMAIN "File System Domain" "fs-local.hiclaw.io"
 
     log ""
@@ -272,6 +272,10 @@ HICLAW_LLM_API_KEY=${HICLAW_LLM_API_KEY}
 # Admin
 HICLAW_ADMIN_USER=${HICLAW_ADMIN_USER}
 HICLAW_ADMIN_PASSWORD=${HICLAW_ADMIN_PASSWORD}
+
+# Ports
+HICLAW_PORT_GATEWAY=${HICLAW_PORT_GATEWAY}
+HICLAW_PORT_CONSOLE=${HICLAW_PORT_CONSOLE}
 
 # Matrix
 HICLAW_MATRIX_DOMAIN=${HICLAW_MATRIX_DOMAIN}

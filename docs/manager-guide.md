@@ -21,7 +21,7 @@ The Manager is configured via environment variables set during installation. The
 | `HICLAW_ADMIN_PASSWORD` | No | (auto-generated) | Human admin password |
 | `HICLAW_MATRIX_DOMAIN` | No | `matrix-local.hiclaw.io:8080` | Matrix server domain |
 | `HICLAW_MATRIX_CLIENT_DOMAIN` | No | `matrix-client-local.hiclaw.io` | Element Web domain |
-| `HICLAW_AI_GATEWAY_DOMAIN` | No | `llm-local.hiclaw.io` | AI Gateway domain |
+| `HICLAW_AI_GATEWAY_DOMAIN` | No | `aigw-local.hiclaw.io` | AI Gateway domain (for LLM and MCP) |
 | `HICLAW_FS_DOMAIN` | No | `fs-local.hiclaw.io` | File system domain |
 | `HICLAW_GITHUB_TOKEN` | No | - | GitHub PAT for MCP Server |
 | `HICLAW_WORKER_IMAGE` | No | `hiclaw/worker-agent:latest` | Worker Docker image for direct creation |

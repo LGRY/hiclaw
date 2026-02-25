@@ -50,6 +50,24 @@ mc mirror "$HOME/hiclaw-fs/shared/tasks/{task-id}/workspace/" \
   hiclaw/hiclaw-storage/shared/tasks/{task-id}/workspace/
 ```
 
+### 2b. Check for Processing Marker
+
+Before modifying the workspace or sending a coding-request, check if the task directory is being processed:
+
+```bash
+# Sync latest state from MinIO
+mc mirror "hiclaw/hiclaw-storage/shared/tasks/{task-id}/" \
+  "$HOME/hiclaw-fs/shared/tasks/{task-id}/"
+
+# Check for processing marker
+if [ -f "$HOME/hiclaw-fs/shared/tasks/{task-id}/.processing" ]; then
+    echo "Task directory is being processed. Wait for manager to complete."
+    # Do NOT send coding-request yet; wait and retry
+fi
+```
+
+If a `.processing` marker exists, wait for the Manager to complete their operation before sending your request.
+
 ### 3. Generate a High-Quality Prompt
 
 A good prompt includes:

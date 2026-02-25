@@ -21,7 +21,7 @@ if [ -z "${WORKER_NAME}" ] || [ -z "${WORKER_MATRIX_TOKEN}" ] || [ -z "${WORKER_
 fi
 
 MATRIX_DOMAIN="${HICLAW_MATRIX_DOMAIN:-matrix-local.hiclaw.io:8080}"
-AI_GATEWAY_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-llm-local.hiclaw.io}"
+AI_GATEWAY_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-aigw-local.hiclaw.io}"
 ADMIN_USER="${HICLAW_ADMIN_USER:-admin}"
 
 # Matrix Domain for user IDs (keep original port like :9080)

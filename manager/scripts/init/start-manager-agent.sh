@@ -7,7 +7,7 @@
 source /opt/hiclaw/scripts/lib/base.sh
 
 MATRIX_DOMAIN="${HICLAW_MATRIX_DOMAIN:-matrix-local.hiclaw.io:8080}"
-AI_GATEWAY_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-llm-local.hiclaw.io}"
+AI_GATEWAY_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-aigw-local.hiclaw.io}"
 
 # ============================================================
 # Create symlink for host directory access

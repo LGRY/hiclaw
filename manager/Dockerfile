@@ -36,9 +36,18 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
     hash -r && node --version
 
 RUN git clone https://github.com/johnlanni/openclaw.git /opt/openclaw && \
-    cd /opt/openclaw && git checkout hiclaw
+    cd /opt/openclaw && git checkout ef7632f56c54a26260a83cdfe02109706b5d5370
 
-RUN cd /opt/openclaw && pnpm install && pnpm build
+# Build args for proxy (use during pnpm install to download native modules)
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG http_proxy
+ARG https_proxy
+
+# NPM registry (default: official, use mirror for faster downloads in China)
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+
+RUN cd /opt/openclaw && pnpm config set registry ${NPM_REGISTRY} && pnpm install && pnpm build
 
 RUN npm install -g mcporter
 
@@ -85,7 +94,8 @@ RUN ln -sf /usr/local/lib/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm && 
 
 # OpenClaw (full source build)
 COPY --from=openclaw-build /opt/openclaw /opt/openclaw
-COPY --from=openclaw-build /usr/local/bin/mcporter /usr/local/bin/mcporter
+# mcporter (use dist/cli.js directly to ensure relative imports work)
+RUN ln -sf /usr/local/lib/node_modules/mcporter/dist/cli.js /usr/local/bin/mcporter
 
 # AI coding CLI binaries (installed in openclaw-build where npm works correctly)
 # node_modules already copied above.

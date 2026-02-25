@@ -24,7 +24,7 @@ Workers are created by the Manager Agent through conversation. The Manager provi
 ./hiclaw-install.sh worker \
   --name alice \
   --matrix-server http://matrix-local.hiclaw.io:8080 \
-  --gateway http://llm-local.hiclaw.io:8080 \
+  --gateway http://aigw-local.hiclaw.io:8080 \
   --fs http://fs-local.hiclaw.io:8080 \
   --fs-key <ACCESS_KEY> \
   --fs-secret <SECRET_KEY>
@@ -35,7 +35,7 @@ Workers are created by the Manager Agent through conversation. The Manager provi
 ```bash
 ./hiclaw-install.sh worker --reset --name alice \
   --matrix-server http://matrix-local.hiclaw.io:8080 \
-  --gateway http://llm-local.hiclaw.io:8080 \
+  --gateway http://aigw-local.hiclaw.io:8080 \
   --fs http://fs-local.hiclaw.io:8080 \
   --fs-key <ACCESS_KEY> \
   --fs-secret <SECRET_KEY>

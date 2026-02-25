@@ -44,6 +44,14 @@ fi
 
 assert_not_empty "${DM_ROOM}" "DM room with Manager exists"
 
+# Wait for Manager Agent to be fully ready (OpenClaw gateway + joined DM room)
+wait_for_manager_agent_ready 300 "${DM_ROOM}" "${ADMIN_TOKEN}" || {
+    log_fail "Manager Agent not ready in time"
+    test_teardown "02-create-worker"
+    test_summary
+    exit 1
+}
+
 # Send create worker request
 matrix_send_message "${ADMIN_TOKEN}" "${DM_ROOM}" \
     "Please create a new Worker named alice for frontend development tasks. She should have access to GitHub MCP."

@@ -112,3 +112,64 @@ test -f ~/manager-workspace/yolo-mode && echo yes  # 文件存在则激活
 
 YOLO 模式适用于自动化测试和 CI 场景，确保流程不被交互式提问阻塞。
 
+## 管理技能（Management Skills）
+
+以下技能帮助你处理 Worker 的委托请求和任务协调：
+
+### task-coordination
+
+通用任务协调机制，使用 `.processing` 标记文件防止 Worker 和 Manager 同时修改同一任务目录。
+
+**何时使用**：在处理任何需要访问 Worker workspace 的操作（coding-cli、git-delegation）之前。
+
+**核心脚本**：
+- `check-processing-marker.sh <task-id>` - 检查是否有活跃的处理标记
+- `create-processing-marker.sh <task-id> <processor>` - 创建处理标记
+- `remove-processing-marker.sh <task-id>` - 移除处理标记
+
+详见：`/opt/hiclaw/agent/skills/task-coordination/SKILL.md`
+
+### git-delegation-management
+
+处理 Worker 的 git 操作委托请求（commit、push、create-branch）。
+
+**消息格式**：
+```
+task-{task-id} git-request:
+workspace: ~/hiclaw-fs/shared/tasks/{task-id}/workspace/{repo-name}
+operations:
+  - type: commit
+    message: "feat: ..."
+  - type: push
+    remote: origin
+    branch: feature-xyz
+---CONTEXT---
+{变更说明}
+---END---
+```
+
+**处理流程**：
+1. 检查 `.processing` 标记
+2. 创建标记
+3. 执行 git 操作
+4. 移除标记
+5. 同步到 MinIO
+6. 回复 Worker
+
+详见：`/opt/hiclaw/agent/skills/git-delegation-management/SKILL.md`
+
+### coding-cli-management
+
+处理 Worker 的编码委托请求，使用 AI CLI 工具（Claude Code / Gemini CLI / qodercli）执行代码修改。
+
+**消息格式**：
+```
+task-{task-id} coding-request:
+workspace: ~/hiclaw-fs/shared/tasks/{task-id}/workspace
+---PROMPT---
+{编码提示词}
+---END---
+```
+
+详见：`/opt/hiclaw/agent/skills/coding-cli-management/SKILL.md`
+

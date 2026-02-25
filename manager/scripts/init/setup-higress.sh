@@ -9,7 +9,7 @@ source /opt/hiclaw/scripts/lib/base.sh
 
 MATRIX_DOMAIN="${HICLAW_MATRIX_DOMAIN:-matrix-local.hiclaw.io:8080}"
 MATRIX_CLIENT_DOMAIN="${HICLAW_MATRIX_CLIENT_DOMAIN:-matrix-client-local.hiclaw.io}"
-AI_GATEWAY_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-llm-local.hiclaw.io}"
+AI_GATEWAY_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-aigw-local.hiclaw.io}"
 FS_DOMAIN="${HICLAW_FS_DOMAIN:-fs-local.hiclaw.io}"
 
 # Resolve LLM provider type and API URL for Higress AI Gateway.
@@ -155,7 +155,7 @@ if [ -n "${HICLAW_GITHUB_TOKEN}" ]; then
         RAW_CONFIG=$(printf '%s' "${MCP_YAML}" | jq -Rs .)
         # Build the full MCP Server body with rawConfigurations
         MCP_BODY=$(cat <<MCPEOF
-{"name":"mcp-github","description":"GitHub MCP Server","type":"OPEN_API","rawConfigurations":${RAW_CONFIG},"mcpServerName":"mcp-github","domains":["mcp-local.hiclaw.io"],"services":[{"name":"github-api.dns","port":443,"weight":100}],"consumerAuthInfo":{"type":"key-auth","enable":true,"allowedConsumers":["manager"]}}
+{"name":"mcp-github","description":"GitHub MCP Server","type":"OPEN_API","rawConfigurations":${RAW_CONFIG},"mcpServerName":"mcp-github","domains":["${AI_GATEWAY_DOMAIN}"],"services":[{"name":"github-api.dns","port":443,"weight":100}],"consumerAuthInfo":{"type":"key-auth","enable":true,"allowedConsumers":["manager"]}}
 MCPEOF
         )
         higress_api PUT /v1/mcpServer "Configuring GitHub MCP Server" \

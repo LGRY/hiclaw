@@ -33,6 +33,14 @@ log_section "Assign GitHub Task"
 DM_ROOM=$(matrix_find_dm_room "${ADMIN_TOKEN}" "${MANAGER_USER}" 2>/dev/null || true)
 assert_not_empty "${DM_ROOM}" "DM room with Manager found"
 
+# Wait for Manager Agent to be fully ready (OpenClaw gateway + joined DM room)
+wait_for_manager_agent_ready 300 "${DM_ROOM}" "${ADMIN_TOKEN}" || {
+    log_fail "Manager Agent not ready in time"
+    test_teardown "08-github-mcp"
+    test_summary
+    exit 1
+}
+
 # Send GitHub task
 matrix_send_message "${ADMIN_TOKEN}" "${DM_ROOM}" \
     "Ask Alice to perform these GitHub operations on the test repo: 1) Read the README.md, 2) Create a branch named 'test-alice-feature', 3) Create a new file docs/test.md with content 'Test from Alice', 4) Create a Pull Request."

@@ -71,7 +71,7 @@ docker exec hiclaw-worker-alice cat /root/hiclaw-fs/agents/alice/openclaw.json |
 # Test AI Gateway access with Worker's key
 docker exec hiclaw-worker-alice curl -sf \
   -H "Authorization: Bearer $(jq -r '.models.providers."hiclaw-gateway".apiKey' /root/hiclaw-fs/agents/alice/openclaw.json)" \
-  http://llm-local.hiclaw.io:8080/v1/models
+  http://aigw-local.hiclaw.io:8080/v1/models
 
 # If 401: Check that Worker's consumer key in openclaw.json matches the one in Higress.
 # If 403: Worker may not be authorized for the AI route. Ask Manager to add.
@@ -84,8 +84,8 @@ docker exec hiclaw-worker-alice curl -sf \
 # Ask Manager to verify Worker's MCP permissions
 
 # Test mcporter connectivity
-docker exec hiclaw-worker-alice mcporter --transport sse \
-  --server-url "http://llm-local.hiclaw.io:8080/mcp/mcp-github/sse" \
+docker exec hiclaw-worker-alice mcporter --transport http \
+  --server-url "http://aigw-local.hiclaw.io:8080/mcp-servers/mcp-github/mcp" \
   --header "Authorization=Bearer <WORKER_KEY>" \
   call list_repos '{"owner": "test"}'
 

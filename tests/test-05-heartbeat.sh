@@ -25,6 +25,14 @@ log_section "Assign Long Task"
 DM_ROOM=$(matrix_find_dm_room "${ADMIN_TOKEN}" "${MANAGER_USER}" 2>/dev/null || true)
 assert_not_empty "${DM_ROOM}" "DM room with Manager found"
 
+# Wait for Manager Agent to be fully ready (OpenClaw gateway + joined DM room)
+wait_for_manager_agent_ready 300 "${DM_ROOM}" "${ADMIN_TOKEN}" || {
+    log_fail "Manager Agent not ready in time"
+    test_teardown "05-heartbeat"
+    test_summary
+    exit 1
+}
+
 # Assign a long-running task
 matrix_send_message "${ADMIN_TOKEN}" "${DM_ROOM}" \
     "Ask Alice to research and write a comprehensive technical document about WebAssembly. This should be detailed and thorough."

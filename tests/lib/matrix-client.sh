@@ -142,6 +142,26 @@ matrix_wait_for_reply() {
     return 1
 }
 
+# Create a DM room with another user
+# Usage: matrix_create_dm_room <access_token> <other_user_id>
+# Returns: room_id
+matrix_create_dm_room() {
+    local token="$1"
+    local other_user="$2"
+
+    local result
+    result=$(exec_in_manager curl -sf -X POST "${TEST_MATRIX_DIRECT_URL}/_matrix/client/v3/createRoom" \
+        -H "Authorization: Bearer ${token}" \
+        -H 'Content-Type: application/json' \
+        -d '{
+            "preset": "trusted_private_chat",
+            "invite": ["'"${other_user}"'"],
+            "is_direct": true
+        }' 2>/dev/null)
+
+    echo "${result}" | jq -r '.room_id // empty'
+}
+
 # Find a DM room between two users
 # Usage: matrix_find_dm_room <access_token> <other_user_id>
 matrix_find_dm_room() {

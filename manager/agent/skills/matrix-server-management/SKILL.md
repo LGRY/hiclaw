@@ -9,6 +9,20 @@ description: Manage the Tuwunel Matrix Homeserver (register users, create rooms,
 
 This skill allows you to manage the Tuwunel Matrix Homeserver. Tuwunel is a conduwuit fork running at `http://127.0.0.1:6167`. Access the server directly (not through the Higress gateway).
 
+## Environment Variables
+
+These environment variables are pre-configured in the Manager container:
+
+```bash
+# Core configuration (set by hiclaw-install.sh)
+HICLAW_MATRIX_DOMAIN       # Matrix server domain (e.g., matrix-local.hiclaw.io:8080)
+HICLAW_ADMIN_USER          # Admin username
+HICLAW_REGISTRATION_TOKEN  # Token for registering new Matrix users
+HICLAW_MANAGER_PASSWORD    # Manager's Matrix password (for login)
+```
+
+No need to set defaults - these are always available in the container environment.
+
 ## User Registration
 
 Tuwunel uses **single-step registration** with a registration token (no UIAA flow).

@@ -206,12 +206,13 @@ push-native-worker: build-worker ## Push native-arch Worker only (dev)
 
 # Wait for Manager services to be ready (used internally by test target)
 # Uses docker exec to check health inside container (works regardless of port mappings)
+# Usage: make wait-ready [CONTAINER=name]
 .PHONY: wait-ready
 wait-ready:
-	@echo "==> Waiting for Manager services to be ready..."
+	@echo "==> Waiting for Manager services to be ready (container: $(or $(CONTAINER),hiclaw-manager))..."
 	@TIMEOUT=300; ELAPSED=0; \
 	while [ "$$ELAPSED" -lt "$$TIMEOUT" ]; do \
-		RESULT=$$(docker exec hiclaw-manager bash -c 'curl -s -o /dev/null -w "%{http_code} " "http://127.0.0.1:6167/_matrix/client/versions" 2>/dev/null || echo "000 "; curl -s -o /dev/null -w "%{http_code} " "http://127.0.0.1:9000/minio/health/live" 2>/dev/null || echo "000 "; curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8001/" 2>/dev/null || echo "000"' 2>/dev/null); \
+		RESULT=$$(docker exec $(or $(CONTAINER),hiclaw-manager) bash -c 'curl -s -o /dev/null -w "%{http_code} " "http://127.0.0.1:6167/_matrix/client/versions" 2>/dev/null || echo "000 "; curl -s -o /dev/null -w "%{http_code} " "http://127.0.0.1:9000/minio/health/live" 2>/dev/null || echo "000 "; curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8001/" 2>/dev/null || echo "000"' 2>/dev/null); \
 		MATRIX=$$(echo "$$RESULT" | tr -d '\n' | cut -d' ' -f1); \
 		MINIO=$$(echo "$$RESULT" | tr -d '\n' | cut -d' ' -f2); \
 		CONSOLE=$$(echo "$$RESULT" | tr -d '\n' | cut -d' ' -f3); \
@@ -229,24 +230,24 @@ wait-ready:
 	echo "ERROR: Manager did not become ready within $${TIMEOUT}s"; \
 	exit 1
 
-test: ## Run integration tests (installs Manager first unless SKIP_INSTALL=1)
+test: ## Run integration tests (creates test container)
 ifdef SKIP_INSTALL
-	@echo "==> Running tests against existing installation (YOLO mode)"
+	@echo "==> Running tests against existing installation"
 	@docker exec hiclaw-manager touch /root/manager-workspace/yolo-mode 2>/dev/null || true
-	./tests/run-all-tests.sh --skip-build --use-existing $(if $(TEST_FILTER),--test-filter "$(TEST_FILTER)") $(if $(INCLUDE_PROJECT_TEST),--include-project-test)
+	./tests/run-all-tests.sh --skip-build --use-existing $(if $(TEST_FILTER),--test-filter "$(TEST_FILTER)")
 else
-	@echo "==> Installing Manager and running tests (YOLO mode)"
+	@echo "==> Installing test Manager and running tests"
 	$(MAKE) uninstall 2>/dev/null || true
 	HICLAW_YOLO=1 $(MAKE) install
 	$(MAKE) wait-ready
-	./tests/run-all-tests.sh --skip-build --use-existing $(if $(TEST_FILTER),--test-filter "$(TEST_FILTER)") $(if $(INCLUDE_PROJECT_TEST),--include-project-test)
+	./tests/run-all-tests.sh --skip-build --use-existing $(if $(TEST_FILTER),--test-filter "$(TEST_FILTER)")
 endif
 
 test-quick: ## Run test-01 only (quick smoke test)
 	$(MAKE) test TEST_FILTER="01"
 
 test-installed: ## Run tests against an already-installed Manager (no container lifecycle)
-	./tests/run-all-tests.sh --skip-build --use-existing $(if $(TEST_FILTER),--test-filter "$(TEST_FILTER)") $(if $(INCLUDE_PROJECT_TEST),--include-project-test)
+	./tests/run-all-tests.sh --skip-build --use-existing $(if $(TEST_FILTER),--test-filter "$(TEST_FILTER)")
 
 # ---------- Install / Uninstall ----------
 
@@ -262,12 +263,12 @@ endif
 
 uninstall: ## Stop and remove Manager + all Worker containers
 	@echo "==> Uninstalling HiClaw..."
-	-docker stop hiclaw-manager 2>/dev/null && docker rm hiclaw-manager 2>/dev/null
+	-docker stop hiclaw-manager 2>/dev/null && docker rm hiclaw-manager 2>/dev/null || true
 	@for c in $$(docker ps -a --filter "name=hiclaw-worker-" --format '{{.Names}}' 2>/dev/null); do \
 		echo "  Removing Worker: $$c"; \
 		docker rm -f "$$c" 2>/dev/null || true; \
 	done
-	-docker volume rm hiclaw-data 2>/dev/null
+	-docker volume rm hiclaw-data 2>/dev/null && echo "  Removed volume: hiclaw-data" || true
 	@if [ -f ./hiclaw-manager.env ]; then \
 		DATA_DIR=$$(grep '^HICLAW_DATA_DIR=' ./hiclaw-manager.env 2>/dev/null | cut -d= -f2-); \
 		if [ -n "$$DATA_DIR" ] && [ -d "$$DATA_DIR" ]; then \
@@ -314,8 +315,8 @@ mirror-images: ## Mirror upstream images to Higress registry (multi-arch, via sk
 
 clean: ## Remove local images and test containers
 	@echo "==> Stopping and removing test containers..."
-	-docker stop hiclaw-manager-test 2>/dev/null
-	-docker rm hiclaw-manager-test 2>/dev/null
+	-docker stop $(TEST_CONTAINER) 2>/dev/null
+	-docker rm $(TEST_CONTAINER) 2>/dev/null
 	-docker ps -a --filter "name=hiclaw-test-worker-" --format '{{.Names}}' | xargs -r docker rm -f 2>/dev/null
 	@echo "==> Removing local images..."
 	-docker rmi $(LOCAL_MANAGER) 2>/dev/null
@@ -338,7 +339,7 @@ help: ## Show this help
 	@echo "  SKIP_BUILD           Skip build in 'install' (set to 1 to skip)"
 	@echo "  SKIP_INSTALL         Skip install in 'test' (set to 1 to test existing)"
 	@echo "  TEST_FILTER          Test numbers to run   (e.g., '01 02 03')"
-	@echo "  INCLUDE_PROJECT_TEST Include project-collaboration test (set to 1)"
+	@echo "  TEST_CONTAINER       Test container name   (default: hiclaw-manager-test)"
 	@echo "  DOCKER_PLATFORM      Build platform        (e.g., linux/amd64)"
 	@echo "  MULTIARCH_PLATFORMS  Multi-arch platforms   (default: linux/amd64,linux/arm64)"
 	@echo "  BUILDX_BUILDER       Buildx builder name   (default: hiclaw-multiarch)"
@@ -359,10 +360,11 @@ help: ## Show this help
 	@echo "  make uninstall                                  # Stop + remove Manager and Workers"
 	@echo ""
 	@echo "Test:"
-	@echo "  HICLAW_LLM_API_KEY=sk-xxx make test             # Install + run all tests"
-	@echo "  make test SKIP_INSTALL=1                        # Run tests against existing Manager"
+	@echo "  HICLAW_LLM_API_KEY=sk-xxx make test             # Install + run all tests (auto cleanup)"
+	@echo "  make test SKIP_BUILD=1                          # Run tests without rebuilding"
 	@echo "  make test TEST_FILTER=\"01 02\"                   # Run specific tests only"
-	@echo "  make test INCLUDE_PROJECT_TEST=1                # Include project-collaboration test"
+	@echo "  make test SKIP_INSTALL=1                        # Run tests against existing Manager"
+	@echo "  make test TEST_CONTAINER=my-test                # Use custom container name"
 	@echo "  make replay TASK=\"Create worker alice\"          # Send a task to Manager"
 	@echo "  make replay                                     # Interactive task input"
 	@echo ""

@@ -27,7 +27,7 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
     hash -r && node --version
 
 RUN git clone https://github.com/johnlanni/openclaw.git /opt/openclaw && \
-    cd /opt/openclaw && git checkout hiclaw
+    cd /opt/openclaw && git checkout ef7632f56c54a26260a83cdfe02109706b5d5370
 
 RUN cd /opt/openclaw && pnpm install && pnpm build
 
@@ -62,9 +62,8 @@ COPY --from=mc /usr/bin/mc /usr/local/bin/mc
 # OpenClaw
 COPY --from=openclaw-build /opt/openclaw /opt/openclaw
 
-# mcporter
-COPY --from=openclaw-build /usr/local/lib/node_modules/mcporter /usr/local/lib/node_modules/mcporter
-COPY --from=openclaw-build /usr/local/bin/mcporter /usr/local/bin/mcporter
+# mcporter (use dist/cli.js directly to ensure relative imports work)
+RUN ln -sf /usr/local/lib/node_modules/mcporter/dist/cli.js /usr/local/bin/mcporter
 
 # Ensure openclaw binary is on PATH and config is found
 ENV PATH="/opt/openclaw/packages/clawdbot/node_modules/.bin:${PATH}"

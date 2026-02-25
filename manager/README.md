@@ -72,7 +72,7 @@ manager/
 | `HICLAW_REGISTRATION_TOKEN` | Yes | - | Tuwunel registration token |
 | `HICLAW_MATRIX_DOMAIN` | No | `matrix-local.hiclaw.io:8080` | Matrix server domain |
 | `HICLAW_MATRIX_CLIENT_DOMAIN` | No | `matrix-client-local.hiclaw.io` | Element Web domain |
-| `HICLAW_AI_GATEWAY_DOMAIN` | No | `llm-local.hiclaw.io` | AI Gateway domain |
+| `HICLAW_AI_GATEWAY_DOMAIN` | No | `aigw-local.hiclaw.io` | AI Gateway domain (for LLM and MCP) |
 | `HICLAW_FS_DOMAIN` | No | `fs-local.hiclaw.io` | HTTP file system domain |
 | `HICLAW_LLM_PROVIDER` | Yes | - | LLM provider name |
 | `HICLAW_DEFAULT_MODEL` | Yes | - | Default LLM model ID |

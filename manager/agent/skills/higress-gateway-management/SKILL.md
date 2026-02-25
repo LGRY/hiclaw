@@ -9,6 +9,20 @@ description: Manage the Higress AI Gateway via its Console API (consumers, route
 
 This skill allows you to manage the Higress AI Gateway via its Console API. The Console API runs at `http://127.0.0.1:8001` and uses **Session Cookie** authentication (NOT Basic Auth).
 
+## Environment Variables
+
+These environment variables are pre-configured in the Manager container. Access them directly in bash:
+
+```bash
+# Core configuration (set by hiclaw-install.sh)
+HICLAW_ADMIN_USER      # Admin username for Higress Console
+HICLAW_ADMIN_PASSWORD  # Admin password for Higress Console
+HICLAW_AI_GATEWAY_DOMAIN  # AI Gateway domain (e.g., aigw-local.hiclaw.io)
+HIGRESS_COOKIE_FILE    # Path to session cookie file
+```
+
+No need to set defaults - these are always available in the container environment.
+
 ## Authentication
 
 A session cookie file is stored at the path in `${HIGRESS_COOKIE_FILE}` environment variable. Use it with `curl -b "${HIGRESS_COOKIE_FILE}"`.
@@ -92,7 +106,7 @@ curl -X POST http://127.0.0.1:8001/v1/ai/routes \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "deepseek-route",
-    "domains": ["llm-local.hiclaw.io"],
+    "domains": ["${HICLAW_AI_GATEWAY_DOMAIN}"],
     "pathPredicate": {"matchType": "PRE", "matchValue": "/", "caseSensitive": false},
     "upstreams": [{"provider": "deepseek", "weight": 100, "modelMapping": {}}],
     "modelPredicates": [{"matchType": "PRE", "matchValue": "deepseek"}],
@@ -107,7 +121,7 @@ curl -X POST http://127.0.0.1:8001/v1/ai/routes \
 When adding a new provider route with `modelPredicates`, also update the `default-ai-route` to add matching `modelPredicates` for its own models, so routes are unambiguous.
 
 Key fields:
-- **domains**: which domain(s) this AI route serves (e.g. `llm-local.hiclaw.io`)
+- **domains**: which domain(s) this AI route serves (e.g. `${HICLAW_AI_GATEWAY_DOMAIN}`)
 - **upstreams**: LLM provider(s) with weight and optional model mapping
 - **modelPredicates**: match models by prefix/exact/regex (e.g. `{"matchType":"PRE","matchValue":"deepseek"}` routes all `deepseek*` models). Omit when only one route exists
 - **authConfig**: consumer-level access control

@@ -313,8 +313,8 @@ bash /opt/hiclaw/agent/skills/worker-management/scripts/generate-worker-config.s
 # Generate mcporter-servers.json if MCP servers are authorized
 if [ -n "${TARGET_MCP_LIST}" ]; then
     log "  Generating mcporter-servers.json..."
-    # MCP servers are hosted on mcp-local.hiclaw.io, not the AI gateway domain
-    MCP_DOMAIN="${HICLAW_MCP_DOMAIN:-mcp-local.hiclaw.io}"
+    # MCP servers are hosted on the AI Gateway domain
+    AIGW_DOMAIN="${HICLAW_AI_GATEWAY_DOMAIN:-aigw-local.hiclaw.io}"
     MCPORTER_JSON='{"mcpServers":{'
     FIRST=true
     IFS=',' read -ra MCP_ARR2 <<< "${TARGET_MCP_LIST}"
@@ -322,7 +322,7 @@ if [ -n "${TARGET_MCP_LIST}" ]; then
         mcp_name=$(echo "${mcp_name}" | tr -d ' ')
         [ -z "${mcp_name}" ] && continue
         if [ "${FIRST}" = true ]; then FIRST=false; else MCPORTER_JSON="${MCPORTER_JSON},"; fi
-        MCPORTER_JSON="${MCPORTER_JSON}\"${mcp_name}\":{\"url\":\"http://${MCP_DOMAIN}:8080/mcp/${mcp_name}\",\"transport\":\"http\",\"headers\":{\"Authorization\":\"Bearer ${WORKER_KEY}\"}}"
+        MCPORTER_JSON="${MCPORTER_JSON}\"${mcp_name}\":{\"url\":\"http://${AIGW_DOMAIN}:8080/mcp-servers/${mcp_name}/mcp\",\"transport\":\"http\",\"headers\":{\"Authorization\":\"Bearer ${WORKER_KEY}\"}}"
     done
     MCPORTER_JSON="${MCPORTER_JSON}}}"
     echo "${MCPORTER_JSON}" | jq . > "${HOME}/hiclaw-fs/agents/${WORKER_NAME}/mcporter-servers.json"

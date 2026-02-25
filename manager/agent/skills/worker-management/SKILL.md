@@ -9,6 +9,24 @@ description: Manage the full lifecycle of Worker Agents (create, configure, moni
 
 This skill allows you to manage the full lifecycle of Worker Agents: creation, configuration, monitoring, and reset. Workers are lightweight containers that connect to the Manager via Matrix and use the centralized file system.
 
+## Environment Variables
+
+These environment variables are pre-configured in the Manager container:
+
+```bash
+# Core configuration (set by hiclaw-install.sh)
+HICLAW_MATRIX_DOMAIN       # Matrix server domain (e.g., matrix-local.hiclaw.io:8080)
+HICLAW_AI_GATEWAY_DOMAIN   # AI Gateway domain (e.g., aigw-local.hiclaw.io)
+HICLAW_FS_DOMAIN           # MinIO file system domain (e.g., fs-local.hiclaw.io)
+HICLAW_ADMIN_USER          # Admin username
+HICLAW_DEFAULT_MODEL       # Default LLM model (e.g., qwen3.5-plus)
+HICLAW_REGISTRATION_TOKEN  # Token for registering Matrix users
+HICLAW_MANAGER_PASSWORD    # Manager's Matrix password
+HICLAW_WORKER_IMAGE        # Worker container image URL
+```
+
+No need to set defaults - these are always available in the container environment.
+
 ## Create a Worker
 
 ### Step 1: Write SOUL.md
@@ -90,7 +108,7 @@ The script outputs a JSON result after `---RESULT---`:
 Report the result to the human admin. If `status` is `"pending_install"`, provide the `install_cmd` from the JSON output. Also remind the admin that for remote deployment, the Worker machine must be able to resolve these domains to the Manager's IP (via DNS or `/etc/hosts`):
 
 - `${HICLAW_MATRIX_DOMAIN}` (Matrix homeserver, e.g. `matrix-local.hiclaw.io`)
-- `${HICLAW_AI_GATEWAY_DOMAIN}` (AI Gateway, e.g. `llm-local.hiclaw.io`)
+- `${HICLAW_AI_GATEWAY_DOMAIN}` (AI Gateway for LLM and MCP, e.g. `aigw-local.hiclaw.io`)
 - `${HICLAW_FS_DOMAIN}` (MinIO file system, e.g. `fs-local.hiclaw.io`)
 
 For local deployment these are auto-resolved via container ExtraHosts.

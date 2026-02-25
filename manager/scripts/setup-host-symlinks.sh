@@ -1,10 +1,11 @@
 #!/bin/bash
-# Setup host symlinks for AI coding CLI tool credentials
+# Setup host symlinks for AI coding CLI tool credentials and git config
 # Runs at container startup (supervisord priority=750)
-# Only symlinks config directories (credentials); binaries are installed in the container
+# Only symlinks config directories/files (credentials); binaries are installed in the container
 
 set -e
 
+# Symlink config directories for AI coding CLI tools
 for config_dir in .claude .gemini .qoder; do
     host_dir="/host-share/$config_dir"
     container_dir="/root/$config_dir"
@@ -20,5 +21,20 @@ for config_dir in .claude .gemini .qoder; do
         echo "[setup-host-symlinks] /host-share/$config_dir not found, skipping"
     fi
 done
+
+# Symlink .gitconfig for git delegation (allows Manager to commit with correct author)
+gitconfig_host="/host-share/.gitconfig"
+gitconfig_container="/root/.gitconfig"
+if [ -f "$gitconfig_host" ]; then
+    if [ -L "$gitconfig_container" ]; then
+        echo "[setup-host-symlinks] ~/.gitconfig already symlinked, skipping"
+    else
+        rm -f "$gitconfig_container" 2>/dev/null || true
+        ln -sf "$gitconfig_host" "$gitconfig_container"
+        echo "[setup-host-symlinks] Linked ~/.gitconfig -> /host-share/.gitconfig"
+    fi
+else
+    echo "[setup-host-symlinks] /host-share/.gitconfig not found, skipping"
+fi
 
 echo "[setup-host-symlinks] Done"

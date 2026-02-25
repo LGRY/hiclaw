@@ -11,6 +11,21 @@ This skill allows you to manage MCP (Model Context Protocol) Servers on the Higr
 
 Pre-configured MCP server YAML templates are stored in `/opt/hiclaw/agent/skills/mcp-server-management/references/mcp-*.yaml`. These templates define the server metadata, credentials placeholder, and all available tools.
 
+## Environment Variables
+
+These environment variables are pre-configured in the Manager container:
+
+```bash
+# Core configuration (set by hiclaw-install.sh)
+HICLAW_AI_GATEWAY_DOMAIN  # AI Gateway domain (e.g., aigw-local.hiclaw.io)
+HIGRESS_COOKIE_FILE       # Path to session cookie file
+
+# Optional credentials (may be empty if not configured)
+HICLAW_GITHUB_TOKEN       # GitHub Personal Access Token for mcp-github
+```
+
+No need to set defaults - these are always available in the container environment.
+
 ## Authentication
 
 Same as `higress-gateway-management` -- use the session cookie file at `${HIGRESS_COOKIE_FILE}`:
@@ -84,7 +99,7 @@ curl -X PUT http://127.0.0.1:8001/v1/mcpServer \
     "type": "OPEN_API",
     "rawConfigurations": '"${RAW_CONFIG}"',
     "mcpServerName": "mcp-github",
-    "domains": ["mcp-local.hiclaw.io"],
+    "domains": ["${HICLAW_AI_GATEWAY_DOMAIN}"],
     "services": [{"name": "11.static", "port": 80, "version": null, "weight": 100}],
     "consumerAuthInfo": {
       "type": "key-auth",
@@ -132,7 +147,7 @@ curl -X PUT http://127.0.0.1:8001/v1/mcpServer \
     "type": "OPEN_API",
     "rawConfigurations": '"${RAW_CONFIG}"',
     "mcpServerName": "my-api",
-    "domains": ["mcp-local.hiclaw.io"],
+    "domains": ["${HICLAW_AI_GATEWAY_DOMAIN}"],
     "services": [{"name": "11.static", "port": 80, "version": null, "weight": 100}],
     "consumerAuthInfo": {
       "type": "key-auth",
@@ -151,7 +166,7 @@ curl -X PUT http://127.0.0.1:8001/v1/mcpServer \
 | `type` | string | Always `"OPEN_API"` for REST-to-MCP servers |
 | `rawConfigurations` | string | **YAML string** containing `server` and `tools` definitions |
 | `mcpServerName` | string | Must match `name` |
-| `domains` | array | Domain list (use `["mcp-local.hiclaw.io"]` as default) |
+| `domains` | array | Domain list (use `["${HICLAW_AI_GATEWAY_DOMAIN}"]` - AI Gateway serves both LLM and MCP) |
 | `services` | array | Service backend (use `[{"name":"11.static","port":80,"version":null,"weight":100}]` as placeholder) |
 | `consumerAuthInfo` | object | Auth config: `{"type":"key-auth","enable":true,"allowedConsumers":["manager"]}` |
 
@@ -239,7 +254,7 @@ cat > ~/hiclaw-fs/agents/<WORKER_NAME>/mcporter-servers.json <<'EOF'
 {
   "mcpServers": {
     "mcp-github": {
-      "url": "http://<HIGRESS_GATEWAY>:8080/mcp/mcp-github",
+      "url": "http://<HIGRESS_GATEWAY>:8080/mcp-servers/mcp-github",
       "transport": "http",
       "headers": {
         "Authorization": "Bearer <WORKER_GATEWAY_KEY>"

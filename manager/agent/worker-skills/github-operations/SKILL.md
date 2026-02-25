@@ -1,175 +1,409 @@
 ---
 name: github-operations
-description: Perform GitHub operations (repos, branches, files, PRs, issues) via the centralized MCP Server. No GitHub token required — credentials are managed by the Manager.
-assign_when: Worker 的职责涉及软件开发、代码协作或 GitHub 项目管理，例如：开发者、工程师、程序员、代码审查员、DevOps 工程师；或者 Worker 需要操作代码仓库、创建/合并 PR、管理 issue、提交代码、管理分支等。
+description: 管理 GitHub Pull Request 和 Issue。包括创建/更新/合并 PR、添加评论、管理 Issue 等。注意：文件读写、分支操作、代码提交等请使用 git-delegation 技能。
+assign_when: Worker 需要管理 Pull Request（创建、审查、合并、评论）或 Issue（创建、更新、评论、标签）
 ---
 
-# GitHub Operations via MCP
+# GitHub PR & Issue Management
 
 ## Overview
 
-This skill allows you to perform GitHub operations (manage repos, branches, files, PRs, issues) using the centralized MCP Server hosted by the Higress AI Gateway. You do NOT need a GitHub token -- the Manager has configured the MCP Server with the required credentials.
+This skill allows you to manage **Pull Requests and Issues** via the centralized MCP Server. For git operations (clone, pull, push, commit, branch), use the **git-delegation** skill instead.
+
+## Environment Variables
+
+These environment variables are pre-configured in your Worker container:
+
+```bash
+MCPORTER_CONFIG  # Path to mcporter server configuration file
+```
+
+This variable is set automatically - use it directly in your commands.
+
+| Task | Use This Skill | Use git-delegation |
+|------|---------------|-------------------|
+| Create/update/close PR | ✅ | |
+| Review/merge PR | ✅ | |
+| Comment on PR/Issue | ✅ | |
+| Create/update/close Issue | ✅ | |
+| Clone repository | | ✅ |
+| Pull/fetch changes | | ✅ |
+| Read/write files | | ✅ |
+| Create branches | | ✅ |
+| Commit/push code | | ✅ |
+
+---
 
 ## How to Call GitHub Tools
 
-Use `mcporter` CLI to call MCP Server tools. mcporter communicates with the Higress MCP Server endpoint via SSE transport.
-
-### Basic Syntax
+Use `mcporter` CLI to call MCP Server tools:
 
 ```bash
-mcporter --transport http \
-  --server-url "http://<AI_GATEWAY_HOST>:8080/mcp/mcp-github" \
-  --header "Authorization=Bearer <YOUR_GATEWAY_KEY>" \
-  call <TOOL_NAME> '<JSON_ARGUMENTS>'
-```
-
-The server URL and gateway key are configured in your `mcporter-servers.json` file. Use:
-
-```bash
+# Method 1: key=value format (recommended for simple args)
 mcporter --config "${MCPORTER_CONFIG}" \
-  call <TOOL_NAME> '<JSON_ARGUMENTS>'
+  call mcp-github.<TOOL_NAME> key1=value1 key2=value2
+
+# Method 2: JSON format with --args flag (for complex objects)
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.<TOOL_NAME> --args '{"key1":"value1","key2":"value2"}'
 ```
+
+**IMPORTANT**:
+- Always place `--config` BEFORE the `call` subcommand
+- For JSON arguments, use the `--args` flag (not bare JSON string)
+- Use `mcp-github.<tool_name>` selector format
 
 ### Output
 
 mcporter returns JSON output. Parse with `jq` for clean results.
 
-## Available Tools
+---
 
-### Repository Operations
+## Pull Request Operations
 
-#### get_repo
+### create_pull_request
+
+Create a new Pull Request:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call get_repo '{"owner": "higress-group", "repo": "hiclaw"}'
-```
-
-#### list_repos
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call list_repos '{"owner": "higress-group"}'
-```
-
-#### create_repo
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call create_repo '{"name": "new-repo", "description": "A new repository", "private": false}'
-```
-
-### File Operations
-
-#### get_file_contents
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call get_file_contents '{"owner": "higress-group", "repo": "hiclaw", "path": "README.md"}'
-```
-
-#### create_or_update_file
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call create_or_update_file '{
-    "owner": "higress-group",
-    "repo": "hiclaw",
-    "path": "docs/new-file.md",
-    "content": "# New File\nContent here...",
-    "message": "Add new documentation file",
-    "branch": "feature-branch"
-  }'
-```
-
-#### push_files
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call push_files '{
-    "owner": "higress-group",
-    "repo": "hiclaw",
-    "branch": "feature-branch",
-    "message": "Add multiple files",
-    "files": [
-      {"path": "file1.md", "content": "Content 1"},
-      {"path": "file2.md", "content": "Content 2"}
-    ]
-  }'
-```
-
-### Branch Operations
-
-#### create_branch
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call create_branch '{"owner": "higress-group", "repo": "hiclaw", "branch": "feature-xyz", "from_branch": "main"}'
-```
-
-#### list_branches
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call list_branches '{"owner": "higress-group", "repo": "hiclaw"}'
-```
-
-### Pull Request Operations
-
-#### create_pull_request
-```bash
-mcporter --config "${MCPORTER_CONFIG}" \
-  call create_pull_request '{
+  call mcp-github.create_pull_request --args '{
     "owner": "higress-group",
     "repo": "hiclaw",
     "title": "Add new feature",
-    "body": "This PR adds...",
+    "body": "## Summary\n- Change 1\n- Change 2\n\n## Test plan\n- [ ] Test A\n- [ ] Test B",
     "head": "feature-branch",
     "base": "main"
   }'
 ```
 
-#### list_pull_requests
+### list_pull_requests
+
+List PRs in a repository:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call list_pull_requests '{"owner": "higress-group", "repo": "hiclaw", "state": "open"}'
+  call mcp-github.list_pull_requests owner=higress-group repo=hiclaw state=open
 ```
 
-#### get_pull_request
+### get_pull_request
+
+Get details of a specific PR:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call get_pull_request '{"owner": "higress-group", "repo": "hiclaw", "pull_number": 1}'
+  call mcp-github.get_pull_request owner=higress-group repo=hiclaw pull_number=1
 ```
 
-### Issue Operations
+### update_pull_request
 
-#### create_issue
+Update PR title, body, or state:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call create_issue '{"owner": "higress-group", "repo": "hiclaw", "title": "Bug report", "body": "Description..."}'
+  call mcp-github.update_pull_request --args '{
+    "owner": "higress-group",
+    "repo": "hiclaw",
+    "pull_number": 1,
+    "title": "Updated title",
+    "body": "Updated description"
+  }'
 ```
 
-#### list_issues
+### merge_pull_request
+
+Merge a PR:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call list_issues '{"owner": "higress-group", "repo": "hiclaw", "state": "open"}'
+  call mcp-github.merge_pull_request owner=higress-group repo=hiclaw pull_number=1 merge_method=squash
 ```
 
-#### add_issue_comment
+### get_pull_request_files
+
+List files changed in a PR:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call add_issue_comment '{"owner": "higress-group", "repo": "hiclaw", "issue_number": 1, "body": "Comment text"}'
+  call mcp-github.get_pull_request_files owner=higress-group repo=hiclaw pull_number=1
 ```
 
-### Search Operations
+### get_pull_request_status
 
-#### search_code
+Get CI status of a PR:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call search_code '{"query": "function handleAuth", "owner": "higress-group"}'
+  call mcp-github.get_pull_request_status owner=higress-group repo=hiclaw pull_number=1
 ```
 
-#### search_repos
+### request_reviewers
+
+Request reviewers for a PR:
+
 ```bash
 mcporter --config "${MCPORTER_CONFIG}" \
-  call search_repos '{"query": "hiclaw language:go"}'
+  call mcp-github.request_reviewers --args '{
+    "owner": "higress-group",
+    "repo": "hiclaw",
+    "pull_number": 1,
+    "reviewers": ["reviewer-username"]
+  }'
 ```
+
+---
+
+## PR Comments & Reviews
+
+### add_issue_comment (general PR comments)
+
+Add a general comment to a PR (PRs are also issues):
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.add_issue_comment owner=higress-group repo=hiclaw issue_number=1 body="LGTM! Great work."
+```
+
+### list_issue_comments
+
+List comments on a PR:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_issue_comments owner=higress-group repo=hiclaw issue_number=1
+```
+
+### create_pull_request_review_comment
+
+Comment on a specific code line in a PR:
+
+```bash
+# First get the latest commit SHA from the PR
+PR_DATA=$(mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.get_pull_request owner=higress-group repo=hiclaw pull_number=1)
+COMMIT_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+
+# Create a review comment
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.create_pull_request_review_comment --args '{
+    "owner": "higress-group",
+    "repo": "hiclaw",
+    "pull_number": 1,
+    "body": "Consider using a helper function here.",
+    "commit_id": "'"$COMMIT_SHA"'",
+    "path": "src/utils/helpers.ts",
+    "line": 42,
+    "side": "RIGHT"
+  }'
+```
+
+### get_pull_request_comments
+
+List all review comments on a PR:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.get_pull_request_comments owner=higress-group repo=hiclaw pull_number=1
+```
+
+### get_pull_request_reviews
+
+List reviews on a PR:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.get_pull_request_reviews owner=higress-group repo=hiclaw pull_number=1
+```
+
+---
+
+## Issue Operations
+
+### create_issue
+
+Create a new issue:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.create_issue owner=higress-group repo=hiclaw title="Bug report" body="Description..."
+```
+
+### list_issues
+
+List issues in a repository:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_issues owner=higress-group repo=hiclaw state=open
+```
+
+### get_issue
+
+Get details of a specific issue:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.get_issue owner=higress-group repo=hiclaw issue_number=1
+```
+
+### update_issue
+
+Update issue title, body, state, or labels:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.update_issue --args '{
+    "owner": "higress-group",
+    "repo": "hiclaw",
+    "issue_number": 1,
+    "title": "Updated title",
+    "state": "closed"
+  }'
+```
+
+### add_issue_comment
+
+Add a comment to an issue:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.add_issue_comment owner=higress-group repo=hiclaw issue_number=1 body="Comment text"
+```
+
+### list_issue_comments
+
+List comments on an issue:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_issue_comments owner=higress-group repo=hiclaw issue_number=1
+```
+
+---
+
+## Labels
+
+### list_labels
+
+List labels in a repository:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_labels owner=higress-group repo=hiclaw
+```
+
+### get_label
+
+Get details of a label:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.get_label owner=higress-group repo=hiclaw name=bug
+```
+
+---
+
+## Search Operations
+
+### search_issues
+
+Search issues and PRs:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.search_issues q="is:issue is:open repo:higress-group/hiclaw"
+```
+
+### search_code
+
+Search code in repositories:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.search_code q="function handleAuth repo:higress-group/hiclaw"
+```
+
+### search_repositories
+
+Search repositories:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.search_repositories query="hiclaw language:go"
+```
+
+### search_users
+
+Search users:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.search_users q="john location:shanghai"
+```
+
+---
+
+## Utility Operations
+
+### get_me
+
+Get current authenticated user:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.get_me
+```
+
+### list_notifications
+
+List notifications:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_notifications all=false
+```
+
+### list_teams
+
+List teams in an organization:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_teams
+```
+
+### list_team_members
+
+List members of a team:
+
+```bash
+mcporter --config "${MCPORTER_CONFIG}" \
+  call mcp-github.list_team_members org=higress-group team_slug=core-team
+```
+
+---
+
+## Known Issues
+
+- `create_pull_request_review`: Has a template processing bug. For adding PR review comments, use:
+  - **General PR comment**: Use `add_issue_comment`
+  - **Comment on specific code line**: Use `create_pull_request_review_comment`
+
+---
 
 ## Important Notes
 
-- **Transport**: Use `--transport sse` (not stdio)
-- **Auth**: SSE endpoint always returns 200 initially; auth check happens on `POST /message`
+- **Transport**: The MCP Server uses HTTP transport (configured in mcporter-servers.json)
+- **Auth**: HTTP endpoint requires Authorization header with Bearer token (auto-configured)
 - **Rate limits**: GitHub API rate limits apply. If you get 403 responses, wait and retry
 - **Permissions**: Your MCP access is controlled by the Manager. If you get 403 from the MCP Server, the Manager may need to re-authorize your access
+
+---
+
+## Typical Workflow
+
+1. **Clone & modify** → Use `git-delegation` skill
+2. **Push changes** → Use `git-delegation` skill
+3. **Create PR** → Use `create_pull_request` (this skill)
+4. **Review PR** → Use `add_issue_comment`, `create_pull_request_review_comment` (this skill)
+5. **Merge PR** → Use `merge_pull_request` (this skill)

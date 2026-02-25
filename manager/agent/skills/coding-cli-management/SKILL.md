@@ -1,3 +1,8 @@
+---
+name: coding-cli-management
+description: Execute AI coding CLI tools (Claude Code / Gemini CLI / qodercli) on behalf of Workers. Use when a Worker sends a coding-request: message, asking Manager to run coding operations in their workspace.
+---
+
 # Coding CLI Management
 
 This skill enables the Manager to execute AI coding CLI tools (claude/gemini/qodercli) on behalf of Workers. Workers generate precise prompts; the Manager runs the CLI in the Worker's workspace and returns the result.
@@ -90,9 +95,20 @@ workspace: ~/hiclaw-fs/shared/tasks/{task-id}/workspace
 # 1. Sync workspace from MinIO
 task_id="task-YYYYMMDD-HHMMSS"
 workspace="$HOME/hiclaw-fs/shared/tasks/${task_id}/workspace"
-mc mirror "hiclaw/hiclaw-storage/shared/tasks/${task_id}/workspace/" "$workspace/"
+mc mirror "hiclaw/hiclaw-storage/shared/tasks/${task_id}/" "$HOME/hiclaw-fs/shared/tasks/${task_id}/"
 
-# 2. Save prompt to file
+# 2. Check for processing marker (task coordination)
+bash /opt/hiclaw/agent/skills/task-coordination/scripts/check-processing-marker.sh "$task_id"
+if [ $? -ne 0 ]; then
+    # Another process is working on this task
+    echo "Task ${task_id} is being processed by another operation. Retry later."
+    exit 1
+fi
+
+# 3. Create processing marker
+bash /opt/hiclaw/agent/skills/task-coordination/scripts/create-processing-marker.sh "$task_id" "manager" 15
+
+# 4. Save prompt to file
 timestamp=$(date +%Y%m%d-%H%M%S)
 prompt_dir="$HOME/hiclaw-fs/shared/tasks/${task_id}/coding-prompts"
 mkdir -p "$prompt_dir"
@@ -101,10 +117,10 @@ cat > "$prompt_file" << 'PROMPT_EOF'
 {extracted prompt content}
 PROMPT_EOF
 
-# 3. Get configured CLI
+# 5. Get configured CLI
 cli=$(jq -r '.cli' ~/manager-workspace/coding-cli-config.json)
 
-# 4. Run CLI
+# 6. Run CLI
 bash /opt/hiclaw/agent/skills/coding-cli-management/scripts/run-coding-cli.sh \
   --cli "$cli" \
   --workspace "$workspace" \
@@ -112,9 +128,12 @@ bash /opt/hiclaw/agent/skills/coding-cli-management/scripts/run-coding-cli.sh \
   --timeout 600
 exit_code=$?
 
-# 5a. On success (exit 0): push changes to MinIO
+# 7. Remove processing marker
+bash /opt/hiclaw/agent/skills/task-coordination/scripts/remove-processing-marker.sh "$task_id"
+
+# 8. On success (exit 0): push changes to MinIO
 if [ "$exit_code" -eq 0 ]; then
-    mc mirror "$workspace/" "hiclaw/hiclaw-storage/shared/tasks/${task_id}/workspace/" --overwrite
+    mc mirror "$HOME/hiclaw-fs/shared/tasks/${task_id}/workspace/" "hiclaw/hiclaw-storage/shared/tasks/${task_id}/workspace/" --overwrite
 fi
 ```
 
