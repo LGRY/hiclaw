@@ -2,20 +2,17 @@
 # hiclaw-install.sh - One-click installation for HiClaw Manager and Worker
 #
 # Usage:
-#   ./hiclaw-install.sh                  # Interactive Manager setup (default)
+#   ./hiclaw-install.sh                  # Interactive installation (choose Quick Start or Manual)
 #   ./hiclaw-install.sh manager          # Same as above (explicit)
 #   ./hiclaw-install.sh worker --name <name> ...  # Worker installation
 #
-# All interactive prompts can be pre-set via environment variables.
-# Minimal install (only LLM key required):
-#   HICLAW_LLM_API_KEY=sk-xxx ./hiclaw-install.sh
+# Onboarding Modes:
+#   Quick Start  - Fast installation with all default values (recommended)
+#   Manual       - Customize each option step by step
 #
-# Non-interactive mode (all defaults, no prompts):
-#   HICLAW_NON_INTERACTIVE=1 HICLAW_LLM_API_KEY=sk-xxx ./hiclaw-install.sh
-#
-# Environment variables:
+# Environment variables (for automation):
 #   HICLAW_NON_INTERACTIVE    Skip all prompts, use defaults  (default: 0)
-#   HICLAW_LLM_PROVIDER      LLM provider       (default: qwen)
+#   HICLAW_LLM_PROVIDER      LLM provider       (default: alibaba-cloud)
 #   HICLAW_DEFAULT_MODEL      Default model       (default: qwen3.5-plus)
 #   HICLAW_LLM_API_KEY        LLM API key         (required)
 #   HICLAW_ADMIN_USER         Admin username       (default: admin)
@@ -144,6 +141,78 @@ wait_manager_ready() {
     
     echo ""
     error "Manager agent did not become ready within ${timeout}s. Check: docker logs ${container}"
+}
+
+# ============================================================
+# Create OpenAI-compatible provider via Higress Console API
+# ============================================================
+
+create_openai_compat_provider() {
+    local base_url="${HICLAW_OPENAI_BASE_URL}"
+    local api_key="${HICLAW_LLM_API_KEY}"
+    local console_port="${HICLAW_PORT_CONSOLE:-18001}"
+    local console_url="http://localhost:${console_port}"
+    
+    if [ -z "${base_url}" ] || [ -z "${api_key}" ]; then
+        log "WARNING: OpenAI Base URL or API Key not set, skipping provider creation"
+        return 1
+    fi
+    
+    # Parse base URL to extract domain and port
+    local domain=""
+    local port="443"
+    local protocol="https"
+    
+    # Remove protocol prefix
+    local url_without_proto="${base_url#https://}"
+    url_without_proto="${url_without_proto#http://}"
+    
+    # Detect protocol
+    if [[ "${base_url}" == http://* ]]; then
+        protocol="http"
+        port="80"
+    fi
+    
+    # Extract domain (first part before /)
+    domain="${url_without_proto%%/*}"
+    
+    # Check for explicit port in domain
+    if [[ "${domain}" == *:* ]]; then
+        port="${domain##*:}"
+        domain="${domain%:*}"
+    fi
+    
+    log "Creating OpenAI-compatible provider..."
+    log "  Domain: ${domain}"
+    log "  Port: ${port}"
+    log "  Protocol: ${protocol}"
+    
+    # Create DNS service source
+    local service_name="openai-compat"
+    local create_service_resp
+    create_service_resp=$(curl -sf -X POST "${console_url}/v1/service-sources" \
+        -H 'Accept: application/json' \
+        -H 'Content-Type: application/json' \
+        -d "{\"type\":\"dns\",\"name\":\"${service_name}\",\"port\":\"${port}\",\"protocol\":\"${protocol}\",\"proxyName\":\"\",\"domain\":\"${domain}\"}" 2>/dev/null) || {
+        log "WARNING: Failed to create DNS service source (may already exist)"
+    }
+    
+    # Wait a moment for service to be created
+    sleep 2
+    
+    # Create AI provider
+    local provider_name="openai-compat"
+    local create_provider_resp
+    create_provider_resp=$(curl -sf -X POST "${console_url}/v1/ai/providers" \
+        -H 'Accept: application/json' \
+        -H 'Content-Type: application/json' \
+        -d "{\"type\":\"openai\",\"name\":\"${provider_name}\",\"tokens\":[\"${api_key}\"],\"version\":0,\"protocol\":\"openai/v1\",\"tokenFailoverConfig\":{\"enabled\":false},\"rawConfigs\":{\"openaiCustomUrl\":\"${base_url}\",\"openaiCustomServiceName\":\"${service_name}.dns\",\"openaiCustomServicePort\":${port}}}" 2>/dev/null) || {
+        log "WARNING: Failed to create AI provider (may already exist)"
+        return 1
+    }
+    
+    log "OpenAI-compatible provider created successfully"
+    return 0
 }
 
 # ============================================================
@@ -353,6 +422,37 @@ install_manager() {
     log "Registry: ${HICLAW_REGISTRY}"
     log ""
 
+    # Onboarding mode selection (skip if already in non-interactive mode)
+    if [ "${HICLAW_NON_INTERACTIVE}" != "1" ]; then
+        log "--- Onboarding Mode ---"
+        echo ""
+        echo "Choose your installation mode:"
+        echo "  1) Quick Start  - Fast installation with Alibaba Cloud (recommended)"
+        echo "  2) Manual       - Choose LLM provider and customize options"
+        echo ""
+        read -p "Enter choice [1/2]: " ONBOARDING_CHOICE
+        ONBOARDING_CHOICE="${ONBOARDING_CHOICE:-1}"
+        
+        case "${ONBOARDING_CHOICE}" in
+            1|quick|quickstart)
+                log "Quick Start mode selected - using Alibaba Cloud Bailian"
+                HICLAW_LLM_PROVIDER="qwen"
+                HICLAW_DEFAULT_MODEL="${HICLAW_DEFAULT_MODEL:-qwen3.5-plus}"
+                HICLAW_QUICKSTART=1
+                ;;
+            2|manual)
+                log "Manual mode selected - you will choose LLM provider and customize options"
+                ;;
+            *)
+                log "Invalid choice, defaulting to Quick Start mode"
+                HICLAW_LLM_PROVIDER="qwen"
+                HICLAW_DEFAULT_MODEL="${HICLAW_DEFAULT_MODEL:-qwen3.5-plus}"
+                HICLAW_QUICKSTART=1
+                ;;
+        esac
+        log ""
+    fi
+
     # Check if Manager is already installed (by env file existence)
     local existing_env="${HICLAW_ENV_FILE:-./hiclaw-manager.env}"
     if [ -f "${existing_env}" ]; then
@@ -521,9 +621,71 @@ install_manager() {
 
     # LLM Configuration
     log "--- LLM Configuration ---"
-    prompt HICLAW_LLM_PROVIDER "LLM Provider (e.g., qwen, openai)" "qwen"
-    prompt HICLAW_DEFAULT_MODEL "Default Model ID" "qwen3.5-plus"
-    prompt HICLAW_LLM_API_KEY "LLM API Key" "" "true"
+    
+    if [ "${HICLAW_QUICKSTART}" = "1" ]; then
+        # Quick Start mode: use Alibaba Cloud Bailian
+        log "  Provider: qwen (Alibaba Cloud Bailian)"
+        log "  Model: ${HICLAW_DEFAULT_MODEL:-qwen3.5-plus}"
+        log ""
+        log "  💡 Get your Alibaba Cloud Bailian API Key from:"
+        log "     https://www.aliyun.com/product/bailian"
+        log ""
+        prompt HICLAW_LLM_API_KEY "LLM API Key" "" "true"
+    elif [ "${HICLAW_NON_INTERACTIVE}" = "1" ]; then
+        # Non-interactive mode: use defaults
+        HICLAW_LLM_PROVIDER="${HICLAW_LLM_PROVIDER:-qwen}"
+        HICLAW_DEFAULT_MODEL="${HICLAW_DEFAULT_MODEL:-qwen3.5-plus}"
+        log "  Provider: ${HICLAW_LLM_PROVIDER} (default)"
+        log "  Model: ${HICLAW_DEFAULT_MODEL} (default)"
+        prompt HICLAW_LLM_API_KEY "LLM API Key" "" "true"
+    else
+        # Manual mode: only support Alibaba Cloud or OpenAI-compatible
+        echo ""
+        echo "Available LLM Providers:"
+        echo "  1) alibaba-cloud  - Alibaba Cloud Bailian (recommended for Chinese users)"
+        echo "  2) openai-compat  - OpenAI-compatible API (OpenAI, DeepSeek, etc.)"
+        echo ""
+        read -p "Select provider [1/2]: " PROVIDER_CHOICE
+        PROVIDER_CHOICE="${PROVIDER_CHOICE:-1}"
+        
+        case "${PROVIDER_CHOICE}" in
+            1|alibaba-cloud)
+                HICLAW_LLM_PROVIDER="qwen"
+                HICLAW_DEFAULT_MODEL="${HICLAW_DEFAULT_MODEL:-qwen3.5-plus}"
+                log "  Provider: ${HICLAW_LLM_PROVIDER} (Alibaba Cloud Bailian)"
+                log "  Model: ${HICLAW_DEFAULT_MODEL}"
+                log ""
+                log "  💡 Get your Alibaba Cloud Bailian API Key from:"
+                log "     https://www.aliyun.com/product/bailian"
+                log ""
+                prompt HICLAW_LLM_API_KEY "LLM API Key" "" "true"
+                ;;
+            2|openai-compat)
+                HICLAW_LLM_PROVIDER="openai-compat"
+                log "  Provider: ${HICLAW_LLM_PROVIDER} (OpenAI-compatible)"
+                echo ""
+                read -p "Base URL (e.g., https://api.openai.com/v1): " HICLAW_OPENAI_BASE_URL
+                read -p "Default Model ID [gpt-4o]: " HICLAW_DEFAULT_MODEL
+                HICLAW_DEFAULT_MODEL="${HICLAW_DEFAULT_MODEL:-gpt-4o}"
+                log "  Base URL: ${HICLAW_OPENAI_BASE_URL}"
+                log "  Model: ${HICLAW_DEFAULT_MODEL}"
+                log ""
+                prompt HICLAW_LLM_API_KEY "LLM API Key" "" "true"
+                ;;
+            *)
+                log "Invalid choice, defaulting to Alibaba Cloud"
+                HICLAW_LLM_PROVIDER="qwen"
+                HICLAW_DEFAULT_MODEL="${HICLAW_DEFAULT_MODEL:-qwen3.5-plus}"
+                log "  Provider: ${HICLAW_LLM_PROVIDER}"
+                log "  Model: ${HICLAW_DEFAULT_MODEL}"
+                log ""
+                log "  💡 Get your Alibaba Cloud Bailian API Key from:"
+                log "     https://www.aliyun.com/product/bailian"
+                log ""
+                prompt HICLAW_LLM_API_KEY "LLM API Key" "" "true"
+                ;;
+        esac
+    fi
 
     log ""
 
@@ -617,6 +779,7 @@ install_manager() {
 HICLAW_LLM_PROVIDER=${HICLAW_LLM_PROVIDER}
 HICLAW_DEFAULT_MODEL=${HICLAW_DEFAULT_MODEL}
 HICLAW_LLM_API_KEY=${HICLAW_LLM_API_KEY}
+HICLAW_OPENAI_BASE_URL=${HICLAW_OPENAI_BASE_URL:-}
 
 # Admin
 HICLAW_ADMIN_USER=${HICLAW_ADMIN_USER}
@@ -746,6 +909,11 @@ EOF
     # Wait for Manager agent to be ready
     wait_manager_ready "hiclaw-manager"
 
+    # Create OpenAI-compatible provider if needed
+    if [ "${HICLAW_LLM_PROVIDER}" = "openai-compat" ]; then
+        create_openai_compat_provider
+    fi
+
     # Send welcome message to Manager
     send_welcome_message
 
@@ -773,8 +941,12 @@ EOF
     log "--- Other Consoles ---"
     log "  Higress Console: http://localhost:${HICLAW_PORT_CONSOLE} (Username: ${HICLAW_ADMIN_USER} / Password: ${HICLAW_ADMIN_PASSWORD})"
     log ""
-    log "Tip: You can also configure LLM providers and API keys via Higress Console,"
-    log "     or simply ask the Manager to do it for you in the chat."
+    log "--- Switch LLM Providers ---"
+    log "  You can switch to other LLM providers (OpenAI, Anthropic, etc.) via Higress Console."
+    log "  For detailed instructions, see:"
+    log "  https://higress.ai/en/docs/ai/scene-guide/multi-proxy#console-configuration"
+    log ""
+    log "Tip: You can also ask the Manager to configure LLM providers for you in the chat."
     log ""
     log "Configuration file: ${ENV_FILE}"
     if [ -n "${HICLAW_DATA_DIR}" ]; then
@@ -862,17 +1034,15 @@ case "${1:-}" in
         echo ""
         echo "Commands:"
         echo "  manager              Interactive Manager installation (default)"
+        echo "                       Choose Quick Start (all defaults) or Manual mode"
         echo "  worker               Worker installation (requires --name and connection params)"
         echo ""
-        echo "All manager prompts can be pre-set via environment variables."
-        echo "Minimal interactive install (only LLM key required):"
-        echo "  HICLAW_LLM_API_KEY=sk-xxx $0"
+        echo "Quick Start (fastest):"
+        echo "  $0"
+        echo "  # Then select '1' for Quick Start mode"
         echo ""
-        echo "Non-interactive install (all defaults, no prompts):"
+        echo "Non-interactive (for automation):"
         echo "  HICLAW_NON_INTERACTIVE=1 HICLAW_LLM_API_KEY=sk-xxx $0"
-        echo ""
-        echo "With external data directory:"
-        echo "  HICLAW_DATA_DIR=~/hiclaw-data HICLAW_LLM_API_KEY=sk-xxx $0"
         echo ""
         echo "Worker Options:"
         echo "  --name <name>        Worker name (required)"
