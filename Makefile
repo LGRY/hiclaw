@@ -82,7 +82,7 @@ all: build
 
 # ---------- Build ----------
 
-build: build-openclaw-base build-manager build-worker ## Build all images
+build: build-manager build-worker ## Build all images (base image pulled from registry, not rebuilt locally)
 
 build-openclaw-base: ## Build OpenClaw base image
 	@echo "==> Building OpenClaw base image: $(LOCAL_OPENCLAW_BASE) (registry: $(HIGRESS_REGISTRY))"
@@ -91,8 +91,10 @@ build-openclaw-base: ## Build OpenClaw base image
 		./openclaw-base/
 
 # build targets use the locally-built openclaw-base; push targets use the registry image
-OPENCLAW_BASE_BUILD_ARG = --build-arg OPENCLAW_BASE_IMAGE=$(LOCAL_OPENCLAW_BASE)
-OPENCLAW_BASE_PUSH_ARG  = --build-arg OPENCLAW_BASE_IMAGE=$(OPENCLAW_BASE_TAG)
+# Both build and push targets use the registry :latest base image for layer sharing
+OPENCLAW_BASE_BUILD_ARG = --build-arg OPENCLAW_BASE_IMAGE=$(OPENCLAW_BASE_IMAGE):latest
+# push targets always use :latest so manager/worker layers are shared across releases
+OPENCLAW_BASE_PUSH_ARG  = --build-arg OPENCLAW_BASE_IMAGE=$(OPENCLAW_BASE_IMAGE):latest
 
 build-manager: ## Build Manager image
 	@echo "==> Building Manager image: $(LOCAL_MANAGER) (registry: $(HIGRESS_REGISTRY))"
@@ -141,7 +143,7 @@ else
 	fi
 endif
 
-push: push-openclaw-base push-manager push-worker ## Build + push multi-arch images (amd64 + arm64)
+push: push-manager push-worker ## Build + push multi-arch images (amd64 + arm64); base image built separately via build-base.yml
 
 push-openclaw-base: buildx-setup ## Build + push multi-arch OpenClaw base image
 	@echo "==> Building + pushing multi-arch OpenClaw base: $(OPENCLAW_BASE_TAG) [$(MULTIARCH_PLATFORMS)]"
