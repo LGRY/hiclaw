@@ -219,11 +219,7 @@ skills add alibaba/higress@higress-wasm-go-plugin -g -y
 技能安装完成，Worker 获得完整的插件开发脚手架和工作流
 ```
 
-**如果你有顾虑，或者有内部技能需要积累，HiClaw 也支持切换到自建私有技能库**——只需要在 Manager 里设置一个环境变量：
-
-```
-SKILLS_API_URL=https://your-private-registry.example.com
-```
+**如果你有顾虑，或者有内部技能需要积累，HiClaw 也支持切换到自建私有技能库**——安装 Manager 时选择 Manual 模式，在 Skills Registry 配置项填入你的私有地址即可。如果安装时没有配置，也可以随时告诉 Manager 在创建 Worker 时使用指定的技能库地址。
 
 只要你的私有库实现了和 skills.sh 相同的 API，Worker 就会无缝切换到内部搜索。两种场景下，Worker 的使用方式完全一致。
 
